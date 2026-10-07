@@ -1,0 +1,22 @@
+name: 问题反馈
+description: 反馈可以复现的问题，请使用匿名示例。
+body:
+  - type: input
+    id: version
+    attributes:
+      label: 应用版本与 Windows 版本
+      placeholder: v1.0，Windows 10 22H2 x64
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 描述实际发生的情况和预期效果。不要填写真实个人信息。
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 匿名截图或错误文字
+      description: 上传前请遮盖姓名、联系方式及简历内容。

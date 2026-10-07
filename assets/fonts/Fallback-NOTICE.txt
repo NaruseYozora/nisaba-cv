@@ -1,0 +1,2 @@
+Nisaba CJK Fallback is an OFL derivative of Noto Sans CJK SC (Sans2.004), copyright Adobe. Static weight 400; retains all 2,367 CJK code points from this source that the existing Resume font families lack. Original base fonts remain unchanged. Renamed to comply with reserved font names.
+Source: https://github.com/notofonts/noto-cjk/tree/Sans2.004

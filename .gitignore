@@ -1,0 +1,16 @@
+/target/
+/runtime/
+/dist/
+/.test-output/
+/.cache/
+**/nisaba-data/
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+*.rslbackup
+*.exe
+*.dll
+*.log
+__pycache__/
+.DS_Store
+Thumbs.db

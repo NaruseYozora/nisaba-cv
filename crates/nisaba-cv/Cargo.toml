@@ -1,0 +1,22 @@
+[package]
+license = "MIT"
+rust-version = "1.99"
+name = "nisaba-cv"
+version = "1.0.0"
+edition = "2024"
+publish = false
+
+
+[dependencies]
+eframe = { version = "=0.36.2", default-features = false, features = ["default_fonts", "glow", "accesskit"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+image = { version = "=0.25.10", default-features = false, features = ["png"] }
+rfd = { version = "=0.16.0", default-features = false }
+resume-core = { path = "../resume-core" }
+tempfile = "3"
+skrifa = "=0.44.0"
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "=0.62.2", features = ["Data_Pdf", "Storage_Streams", "Win32_System_WinRT"] }
+

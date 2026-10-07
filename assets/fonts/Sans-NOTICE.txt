@@ -1,0 +1,4 @@
+(c) 2014-2021 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source'.
+
+Resume Sans SC is an OFL derivative of Noto Sans SC.
+Static weights 400/600, distinct Unicode alias glyphs, optional substitutions removed, renamed family, TrueType encoding.

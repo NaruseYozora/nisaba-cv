@@ -1,0 +1,27 @@
+name: Source checks
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust
+        shell: pwsh
+        run: rustup toolchain install 1.99.0 --profile minimal --component rustfmt --component clippy
+      - name: Format
+        shell: pwsh
+        run: cargo fmt --all -- --check
+      - name: Core tests
+        shell: pwsh
+        run: cargo test -p resume-core --locked
+      - name: Check all targets
+        shell: pwsh
+        run: cargo check --workspace --all-targets --locked
+      - name: Clippy
+        shell: pwsh
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
