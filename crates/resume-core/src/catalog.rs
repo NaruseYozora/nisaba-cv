@@ -9,13 +9,26 @@ use rusqlite::{Connection, OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
-pub const BUILTINS: [(&str, &str); 5] = [
+pub const BUILTINS: [(&str, &str); 4] = [
+    ("education", "教育经历"),
+    ("work", "工作经历"),
+    ("project", "项目经历"),
+    ("skill", "技能"),
+];
+const FIELD_KINDS: [(&str, &str); 5] = [
     ("education", "教育经历"),
     ("work", "工作经历"),
     ("project", "项目经历"),
     ("skill", "技能"),
     ("custom", "自定义"),
 ];
+pub fn kind_title(kind: &str) -> &str {
+    FIELD_KINDS
+        .iter()
+        .find(|(k, _)| *k == kind)
+        .map(|(_, name)| *name)
+        .unwrap_or(kind)
+}
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Category {
@@ -46,7 +59,7 @@ pub struct ProfileEditorDraft {
     pub custom_fields: Vec<CustomField>,
 }
 pub fn valid_kind(kind: &str) -> bool {
-    BUILTINS.iter().any(|(k, _)| *k == kind)
+    FIELD_KINDS.iter().any(|(k, _)| *k == kind)
 }
 pub(crate) fn category_on(db: &Connection, category_id: &str) -> Result<Category> {
     db.query_row(
@@ -98,6 +111,11 @@ pub(crate) fn legacy_category(db: &Connection, content: &ItemContent) -> Result<
         return Ok(format!("builtin:{}", content.kind()));
     };
     if category.trim().is_empty() || key(category) == key("自定义") {
+        require(
+            db.prepare("SELECT 1 FROM categories WHERE id='builtin:custom'")?
+                .exists([])?,
+            "自定义素材须先创建并命名类别",
+        )?;
         return Ok("builtin:custom".into());
     }
     let category_id = format!("legacy-custom:{}", files::hash(key(category).as_bytes()));
@@ -123,7 +141,8 @@ pub(crate) fn legacy_category(db: &Connection, content: &ItemContent) -> Result<
     Ok(category_id)
 }
 pub(crate) fn migrate_categories(db: &Connection) -> Result<()> {
-    for (kind, name) in BUILTINS {
+    // Schema 6 is frozen; schema 7 removes the generic custom bucket.
+    for (kind, name) in FIELD_KINDS {
         insert_category(db, &format!("builtin:{kind}"), name, kind, true)?;
     }
     let mut statement = db.prepare("SELECT id,kind,content FROM library_items ORDER BY id")?;
@@ -166,10 +185,15 @@ pub(crate) fn validate_catalog(db: &Connection) -> Result<()> {
             "类别结构无效",
         )?;
         require(
-            c.builtin == c.id.starts_with("builtin:"),
+            c.builtin == c.id.starts_with("builtin:")
+                || (c.id == "builtin:custom" && c.kind == "custom" && !c.builtin),
             "内置类别标识无效",
         )?;
         if c.builtin {
+            require(
+                BUILTINS.iter().any(|(kind, _)| *kind == c.kind),
+                "自定义类别不能是内置类别",
+            )?;
             require(c.id == format!("builtin:{}", c.kind), "内置类别类型无效")?;
         }
     }
@@ -243,11 +267,8 @@ impl Store {
             return Err(Error::Conflict);
         }
         require(!c.builtin, "内置类别不能删除")?;
-        require(
-            !tx.prepare("SELECT 1 FROM item_categories WHERE category_id=?")?
-                .exists([category_id])?,
-            "类别中仍有素材（包括归档和回收站），请先移动素材",
-        )?;
+        // The UI confirms removal of all contents; resume copies are independent JSON.
+        tx.execute("DELETE FROM library_items WHERE id IN (SELECT item_id FROM item_categories WHERE category_id=?)", [category_id])?;
         require_changed(tx.execute(
             "DELETE FROM categories WHERE id=? AND revision=?",
             params![category_id, revision],

@@ -40,6 +40,6 @@ try{
  }
  $dependencies | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $bundle 'licenses/Rust-dependencies.json') -Encoding utf8
  $files=@(Get-ChildItem -LiteralPath $bundle -File -Recurse | ForEach-Object {[ordered]@{path=[IO.Path]::GetRelativePath($bundle,$_.FullName);bytes=$_.Length;sha256=(Get-FileHash -LiteralPath $_.FullName).Hash}})
- [ordered]@{version='1.0.0';folderName='Nisaba CV';files=$files} | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $repo 'dist/manifest.json') -Encoding utf8
+ [ordered]@{version='1.1.0';folderName='Nisaba CV';files=$files} | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $repo 'dist/manifest.json') -Encoding utf8
  Write-Output $bundle
 }finally{$env:RUSTFLAGS=$flags}

@@ -42,9 +42,9 @@ Windows PDF API 用于原始历史查看。PDF 回归测试需要已准备的 ru
 ./scripts/package.ps1 -Makensis 'C:\Program Files (x86)\NSIS\makensis.exe'
 ```
 
-`dist/Nisaba CV/` 是完整便携目录；`dist/Nisaba-CV-v1.0-windows-x64.exe` 是可上传 Releases 的自解压包。生成的 `SHA256SUMS.txt`、`manifest.json` 和 `verification.json` 用于核验。`dist/`、`runtime/` 不提交到 Git。
+`dist/Nisaba CV/` 是完整便携目录；`dist/Nisaba-CV-v1.1-windows-x64.exe` 是可上传 Releases 的自解压包。生成的 `SHA256SUMS.txt`、`manifest.json` 和 `verification.json` 用于核验。`dist/`、`runtime/` 不提交到 Git。
 
-`source-archive.ps1` 生成可单独分享的 `dist/Nisaba-CV-v1.0-source.zip`，保留 GitHub 配置和字体，排除运行库、发行目录与测试资料。常规 GitHub 发布直接提交源码即可。
+`source-archive.ps1` 生成可单独分享的 `dist/Nisaba-CV-v1.1-source.zip`，保留 GitHub 配置和字体，排除运行库、发行目录与测试资料。常规 GitHub 发布直接提交源码即可。
 
 构建脚本采用静态 MSVC CRT，排版器所需 DLL 在 `tools/` 内随包提供。若目标便携目录出现 `nisaba-data`，构建和打包会拒绝，以免使用正在保存个人资料的目录。
 

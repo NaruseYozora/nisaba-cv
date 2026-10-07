@@ -3,14 +3,15 @@ use rusqlite::{Connection, backup::Backup, params};
 use std::{path::Path, time::Duration};
 
 pub const APPLICATION_ID: i64 = 0x52534d45;
-pub const SCHEMA: i64 = 6;
-const SQL: [&str; 6] = [
+pub const SCHEMA: i64 = 7;
+const SQL: [&str; 7] = [
     include_str!("../migrations/001_initial.sql"),
     include_str!("../migrations/002_lifecycle.sql"),
     include_str!("../migrations/003_preset_kinds.sql"),
     include_str!("../migrations/004_snapshot_metadata.sql"),
     include_str!("../migrations/005_change_tracking.sql"),
     include_str!("../migrations/006_categories.sql"),
+    include_str!("../migrations/007_named_custom_categories.sql"),
 ];
 pub fn header(db: &Connection) -> Result<i64> {
     let id: i64 = db.query_row("PRAGMA application_id", [], |r| r.get(0))?;

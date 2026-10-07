@@ -71,7 +71,7 @@ git status --short
 检查这两条查看命令的输出：应只有上表中的源码、资源、配置、说明和许可，不应含安装包、运行工具或个人资料。确认后提交：
 
 ```bash
-git commit -m 'Initial public release v1.0'
+git commit -m 'Initial public release v1.1'
 ```
 
 `git add` 是选择本次提交的文件，`git commit` 是保存一份本地代码记录，此时尚未上传。
@@ -95,17 +95,39 @@ git push -u origin main
 
 源码上传后，进入仓库 **Releases → Draft a new release**：
 
-1. 创建标签 `v1.0`，目标为 `main`。
-2. 标题填写 `Nisaba CV v1.0`。
-3. 说明可使用 `docs/RELEASE-v1.0.md` 的内容；其中“验证说明”是相对链接，粘贴到 Release 时应换成仓库 `docs/VERIFICATION.md` 的网页地址。
-4. 上传 `Nisaba-CV-v1.0-windows-x64.exe` 和 `SHA256SUMS.txt`，发布 Release。
+1. 创建标签 `v1.1`，目标为 `main`。
+2. 标题填写 `Nisaba CV v1.1`。
+3. 说明可复制 `docs/RELEASE-v1.1.md` 的内容；如果维护的是 fork，请把验证记录的网页地址调整到自己的仓库。
+4. 上传 `Nisaba-CV-v1.1-windows-x64.exe` 和 `SHA256SUMS.txt`，发布 Release。
 
-当前准备好的这两个文件在 Windows 的 `D:\简历编辑器\output\v1.0`；Ubuntu 对应 `/mnt/d/简历编辑器/output/v1.0`。其他维护者构建时，文件生成于源码目录的 `dist/`。
+当前准备好的这两个文件在 Windows 的 `D:\简历编辑器\output\v1.1`；Ubuntu 对应 `/mnt/d/简历编辑器/output/v1.1`。其他维护者构建时，文件生成于源码目录的 `dist/`。
 
-安装包提供给普通使用者；校验文件用于验证下载包。`Nisaba-CV-v1.0-source.zip` 是本地准备的源码副本，不需要作为代码文件上传，GitHub 会自动提供标签对应的源码下载。`manifest.json` 和 `verification.json` 是本地核对记录，本次也不必上传到 Releases。
+安装包提供给普通使用者；校验文件用于验证下载包。`Nisaba-CV-v1.1-source.zip` 是本地准备的源码副本，不需要作为代码文件上传，GitHub 会自动提供标签对应的源码下载。`manifest.json` 和 `verification.json` 是本地核对记录，本次也不必上传到 Releases。
 
 详见 [GitHub 发布说明](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository)。
 
 ## 以后维护
 
 继续使用同一个源码目录。修改后执行 `git add .`、`git status`、`git commit -m '说明本次修改'`、`git push`。`.gitignore` 会继续排除生成文件与个人资料。发布新版应同步提交对应源码、更新公开版本与说明，构建并验证后创建新的 Release 标签。
+
+### 本次更新 v1.1
+
+在 VS Code 连接 Ubuntu 后的终端执行：
+
+```bash
+cd '/mnt/d/简历编辑器/publish/nisaba-cv'
+git status --short
+git add .
+git diff --cached --stat
+git commit -m 'Release v1.1 with named custom categories'
+git push origin main
+```
+
+这次沿用已有仓库，无需重新初始化或添加 origin。上传的是修改后的源码、测试、文档和发行脚本；安装包和本地资料由 `.gitignore` 排除。
+
+打开 `https://github.com/你的用户名/nisaba-cv/releases/new`（仓库名按实际填写），创建新标签 `v1.1`，目标为刚更新的 `main`，标题 `Nisaba CV v1.1`。说明使用 [本次发布说明](RELEASE-v1.1.md)。在说明框下方的 **Attach binaries** 附件区域上传以下两个文件，不要拖进说明输入框：
+
+- Windows：`D:\简历编辑器\output\v1.1\Nisaba-CV-v1.1-windows-x64.exe`
+- Windows：`D:\简历编辑器\output\v1.1\SHA256SUMS.txt`
+
+Ubuntu 对应 `/mnt/d/简历编辑器/output/v1.1/`。保留原来的 `v1.0` Release；本次发布一个新的 Release。等待两个附件上传完成后点击 **Publish release**。

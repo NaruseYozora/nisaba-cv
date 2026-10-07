@@ -1,10 +1,10 @@
 $ErrorActionPreference='Stop'
 $repo=Split-Path -Parent $PSScriptRoot
-$package=Join-Path $repo 'dist/Nisaba-CV-v1.0-windows-x64.exe'
+$package=Join-Path $repo 'dist/Nisaba-CV-v1.1-windows-x64.exe'
 $manifest=(Get-Content -LiteralPath (Join-Path $repo 'dist/manifest.json') -Raw | ConvertFrom-Json).files
 $checkRoot=Join-Path $repo ('.test-output/package-check-'+[Guid]::NewGuid())
 New-Item -ItemType Directory -Path $checkRoot | Out-Null
-$localPackage=Join-Path $checkRoot 'Nisaba-CV-v1.0-windows-x64.exe'
+$localPackage=Join-Path $checkRoot 'Nisaba-CV-v1.1-windows-x64.exe'
 Copy-Item -LiteralPath $package -Destination $localPackage
 $env:HTTP_PROXY='http://127.0.0.1:9'
 $env:HTTPS_PROXY=$env:HTTP_PROXY
@@ -54,6 +54,6 @@ $before=(Get-FileHash -LiteralPath (Join-Path $data 'library.sqlite3')).Hash
 if((Run-Checked $exe @('--self-test','--data',('"'+$data+'"'))) -eq 0){throw 'Self-test accepted existing personal data'}
 if((Get-FileHash -LiteralPath (Join-Path $data 'library.sqlite3')).Hash -ne $before){throw 'Rejected self-test changed data'}
 $version=(Get-Item -LiteralPath $package).VersionInfo
-if($version.ProductVersion -ne '1.0' -or $version.FileVersion -ne '1.0'){throw 'Public package version differs'}
+if($version.ProductVersion -ne '1.1' -or $version.FileVersion -ne '1.1'){throw 'Public package version differs'}
 [ordered]@{passed=$true;version=$version.ProductVersion;defaultFolder='Nisaba CV';files=$manifest.Count;packageBytes=(Get-Item -LiteralPath $package).Length;packageSha256=(Get-FileHash -LiteralPath $package).Hash;exeSha256=(Get-FileHash -LiteralPath $exe).Hash;newAndEmptyDirectoriesPassed=$true;existingAndHiddenFilesProtected=$true;selfTest=$test;physicalNetworkDisconnect=$false} | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $repo 'dist/verification.json') -Encoding utf8
 Get-Content -LiteralPath (Join-Path $repo 'dist/verification.json')

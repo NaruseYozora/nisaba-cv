@@ -530,7 +530,7 @@ impl App {
                 ),
                 Confirmation::DeleteCategory(_, _) => (
                     "删除类别",
-                    "只允许删除没有素材的自建类别，包括归档与回收站里的素材。",
+                    "删除类别及其中所有素材（包括归档和回收站），无法撤销。已生成的简历保留。",
                     "删除",
                 ),
                 Confirmation::DeletePreset(_, _) => ("删除预设", "已生成的简历保留。", "删除"),
@@ -551,6 +551,17 @@ impl App {
                 ),
             };
             ui.heading(title);
+            if let Confirmation::DeleteCategory(id, _) = &confirm
+                && let Some(category) = self.cache.categories.iter().find(|c| &c.id == id)
+            {
+                let count = self
+                    .cache
+                    .items
+                    .iter()
+                    .filter(|i| &i.category_id == id)
+                    .count();
+                ui.strong(format!("{} · {} 项素材", category.name, count));
+            }
             ui.label(body);
             if matches!(confirm, Confirmation::Restore(_, _)) {
                 ui.label(&self.backup_status);

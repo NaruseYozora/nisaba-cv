@@ -1,6 +1,6 @@
 $ErrorActionPreference='Stop'
 $repo=Split-Path -Parent $PSScriptRoot
-$output=Join-Path $repo 'dist/Nisaba-CV-v1.0-source.zip'
+$output=Join-Path $repo 'dist/Nisaba-CV-v1.1-source.zip'
 $roots=@('.github','assets','crates','docs','packaging','scripts','third-party')
 $names=@('.gitattributes','.gitignore','Cargo.lock','Cargo.toml','CHANGELOG.md','CONTRIBUTING.md','LICENSE','README.md','runtime-lock.json','rust-toolchain.toml')
 $files=@($names | ForEach-Object {Get-Item -LiteralPath (Join-Path $repo $_)})

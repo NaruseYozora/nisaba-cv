@@ -1391,7 +1391,12 @@ fn selection_document(
         let mut offset = 0;
         for selected in sections {
             let category = crate::catalog::category_on(db, &selected.category_id)?;
-            let title = if category.builtin {
+            // A renamed category is a user heading, not a generic layout label.
+            let title = if category.builtin
+                && crate::catalog::BUILTINS
+                    .iter()
+                    .any(|(kind, name)| *kind == category.kind && *name == category.name)
+            {
                 document
                     .style
                     .module_titles

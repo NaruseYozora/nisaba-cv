@@ -188,3 +188,145 @@ fn preview_replacement_and_failed_export_retry_keep_saved_document() {
     let stored = app.actor.call(false, move |s| s.resume(&r.id)).unwrap();
     assert_eq!(stored.document, editor.draft.document);
 }
+
+#[test]
+fn named_categories_and_project_urls_render_in_grouped_and_legacy_resumes() {
+    let t = temp();
+    let mut s = Store::open(t.path()).unwrap();
+    let base = fixture(&mut s, false);
+    let mut p = Picker::default();
+    for (kind, category_name, title) in [
+        ("education", "教育经历", "示例大学"),
+        ("project", "项目经历", "简历资料工具"),
+        ("project", "项目经历", "无标签项目"),
+        ("custom", "资格证书", "软件资格"),
+        ("custom", "科研训练", "校内课题"),
+    ] {
+        let category_id = if kind == "custom" {
+            s.create_category(category_name, kind).unwrap().id
+        } else {
+            format!("builtin:{kind}")
+        };
+        let mut draft = nisaba_cv::editors::empty_item(kind, category_name);
+        match &mut draft.content {
+            ItemContent::Education {
+                school,
+                degree,
+                major,
+                ..
+            } => {
+                *school = title.into();
+                *degree = "学士".into();
+                *major = "计算机科学".into();
+            }
+            ItemContent::Project { name, url, .. } => {
+                *name = title.into();
+                *url = Some(Link {
+                    label: if title == "无标签项目" {
+                        " "
+                    } else {
+                        "源代码"
+                    }
+                    .into(),
+                    url: if title == "无标签项目" {
+                        "https://example.com/unlabelled".into()
+                    } else {
+                        format!(
+                            "https://example.com/source?branch=main&path={}",
+                            "longpath".repeat(12)
+                        )
+                    },
+                });
+            }
+            ItemContent::Custom { title: value, .. } => *value = title.into(),
+            _ => unreachable!(),
+        }
+        let item = s
+            .save_item_in_category(None, None, &category_id, draft)
+            .unwrap();
+        p.toggle_item(&item, true);
+    }
+    let mut style = Style {
+        accent: "#a12f7c".into(),
+        ..Default::default()
+    };
+    style.module_titles.insert("custom".into(), "自定义".into());
+    let r = s
+        .create_resume("显示修复验收", &p.selection, style)
+        .unwrap();
+    for legacy in [false, true] {
+        let mut case = r.clone();
+        if legacy {
+            case.document.format_version = 1;
+            case.document.sections.clear();
+        }
+        let original = case.document.clone();
+        let rendered = render::render(&s, &bundle(), t.path(), &case).unwrap();
+        let json: serde_json::Value =
+            serde_json::from_slice(&fs::read(rendered.directory.join("resume.json")).unwrap())
+                .unwrap();
+        assert_eq!(json["document"]["formatVersion"], 2);
+        let query = std::process::Command::new(bundle().join("tools/typst.exe"))
+            .args([
+                "query",
+                "--ignore-system-fonts",
+                "--ignore-embedded-fonts",
+                "--font-path",
+            ])
+            .arg(bundle().join("fonts"))
+            .arg(rendered.directory.join("resume.typ"))
+            .args(["heading", "--field", "body"])
+            .output()
+            .unwrap();
+        assert!(
+            query.status.success(),
+            "{}",
+            String::from_utf8_lossy(&query.stderr)
+        );
+        let headings: Vec<serde_json::Value> = serde_json::from_slice(&query.stdout).unwrap();
+        assert_eq!(headings.len(), 4);
+        let text = String::from_utf8(query.stdout).unwrap();
+        for name in ["教育经历", "项目经历", "资格证书", "科研训练"] {
+            assert!(text.contains(name), "{text}");
+        }
+        assert!(!text.contains("自定义"));
+        let links = std::process::Command::new(bundle().join("tools/typst.exe"))
+            .args([
+                "query",
+                "--ignore-system-fonts",
+                "--ignore-embedded-fonts",
+                "--font-path",
+            ])
+            .arg(bundle().join("fonts"))
+            .arg(rendered.directory.join("resume.typ"))
+            .args(["link", "--field", "body"])
+            .output()
+            .unwrap();
+        assert!(
+            links.status.success(),
+            "{}",
+            String::from_utf8_lossy(&links.stderr)
+        );
+        let bodies: Vec<serde_json::Value> = serde_json::from_slice(&links.stdout).unwrap();
+        assert_eq!(bodies.len(), 2);
+        let text = String::from_utf8(links.stdout).unwrap();
+        assert!(text.contains("https://example.com/unlabelled"), "{text}");
+        assert!(
+            text.contains(&format!(
+                "https://example.com/source?branch=main&path={}",
+                "longpath".repeat(12)
+            )),
+            "{text}"
+        );
+        assert_eq!(case.document, original);
+        if let Some(output) = std::env::var_os("NISABA_QA_OUTPUT") {
+            let dir = PathBuf::from(output).join(if legacy { "legacy" } else { "grouped" });
+            fs::create_dir_all(&dir).unwrap();
+            for file in ["resume.pdf", "page-1.png", "resume.json"] {
+                fs::copy(rendered.directory.join(file), dir.join(file)).unwrap();
+            }
+        }
+    }
+    assert_eq!(s.resume(&base.id).unwrap().document, base.document);
+    assert_eq!(s.resume(&r.id).unwrap().document, r.document);
+}

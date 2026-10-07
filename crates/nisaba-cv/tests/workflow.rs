@@ -129,6 +129,199 @@ fn pointer(pos: egui::Pos2, pressed: bool) -> egui::Event {
     }
 }
 
+fn click_text(app: &mut App, ctx: &egui::Context, text: &str) {
+    frame(app, ctx, vec![], [1200., 1200.]);
+    let out = frame(app, ctx, vec![], [1200., 1200.]);
+    let pos = texts(&out)
+        .into_iter()
+        .find(|(t, _)| t == text)
+        .unwrap_or_else(|| panic!("Missing UI control: {text}"))
+        .1
+        .center();
+    frame(
+        app,
+        ctx,
+        vec![egui::Event::PointerMoved(pos), pointer(pos, true)],
+        [1200., 1200.],
+    );
+    frame(app, ctx, vec![pointer(pos, false)], [1200., 1200.]);
+}
+
+#[test]
+fn create_hobbies_category_select_export_and_delete_through_visible_ui() {
+    let (temp, mut app) = setup();
+    assert_eq!(app.cache.categories.len(), 4);
+    assert!(!app.cache.categories.iter().any(|c| c.name == "自定义"));
+    let ctx = egui::Context::default();
+    configure(&ctx, &app.bundle).unwrap();
+    click_text(&mut app, &ctx, "类别名称，如：爱好");
+    frame(
+        &mut app,
+        &ctx,
+        vec![egui::Event::Text("爱好".into())],
+        [1200., 1200.],
+    );
+    assert_eq!(app.category_name, "爱好");
+    click_text(&mut app, &ctx, "创建类别");
+    settle(&mut app);
+    assert!(app.error.is_empty(), "{}", app.error);
+    let category = app
+        .cache
+        .categories
+        .iter()
+        .find(|c| c.name == "爱好")
+        .unwrap()
+        .clone();
+    assert!(!category.builtin);
+    assert_eq!(app.cache.categories.len(), 5);
+    assert!(app.category_name.is_empty());
+    app.category_filter = Some(category.id.clone());
+    click_text(&mut app, &ctx, "添加素材");
+    let Some(Editor::Item(e)) = &mut app.editor else {
+        panic!("material editor not opened")
+    };
+    assert_eq!(e.category_id, category.id);
+    if let ItemContent::Custom { title, .. } = &mut e.draft.content {
+        *title = "阅读".into();
+    }
+    e.draft.achievements.push(AchievementDraft {
+        id: None,
+        text: "每周阅读".into(),
+    });
+    app.save(true);
+    settle(&mut app);
+    assert!(app.error.is_empty(), "{}", app.error);
+    education(&mut app);
+    skill(&mut app, "Rust");
+    app.actor
+        .call(true, |s| {
+            let mut draft = empty_item("project", "项目经历");
+            if let ItemContent::Project { name, .. } = &mut draft.content {
+                *name = "演示项目".into();
+            }
+            s.save_item_in_category(None, None, "builtin:project", draft)
+        })
+        .unwrap();
+    refresh(&mut app);
+    app.go(Page::Picker);
+    app.picker.name = "爱好界面验收".into();
+    click_text(&mut app, &ctx, "示例大学");
+    click_text(&mut app, &ctx, "演示项目");
+    click_text(&mut app, &ctx, "Rust");
+    click_text(&mut app, &ctx, "阅读");
+    assert_eq!(
+        app.picker
+            .selection
+            .sections
+            .as_ref()
+            .unwrap()
+            .last()
+            .unwrap()
+            .category_id,
+        category.id
+    );
+    click_text(&mut app, &ctx, "生成简历");
+    settle(&mut app);
+    let Some(Editor::Resume(editor)) = app.editor.clone() else {
+        panic!("resume not created")
+    };
+    assert_eq!(
+        editor
+            .draft
+            .document
+            .sections
+            .iter()
+            .map(|s| s.title.as_str())
+            .collect::<Vec<_>>(),
+        ["教育经历", "项目经历", "技能", "爱好"]
+    );
+    let resume_id = editor.id.clone();
+    let pdf = temp.path().join("hobbies.pdf");
+    app.render_resume(&editor, Some(pdf.clone()));
+    settle(&mut app);
+    assert!(app.error.is_empty(), "{}", app.error);
+    assert!(pdf.exists());
+    if let Some(output) = std::env::var_os("NISABA_QA_OUTPUT") {
+        let output = std::path::PathBuf::from(output).join("hobbies-ui");
+        std::fs::create_dir_all(&output).unwrap();
+        std::fs::copy(&pdf, output.join("resume.pdf")).unwrap();
+    }
+    app.go(Page::Library);
+    app.category_filter = Some(category.id.clone());
+    click_text(&mut app, &ctx, "删除类别");
+    click_text(&mut app, &ctx, "取消");
+    assert!(app.cache.categories.iter().any(|c| c.id == category.id));
+    click_text(&mut app, &ctx, "删除类别");
+    click_text(&mut app, &ctx, "删除");
+    settle(&mut app);
+    assert!(app.error.is_empty(), "{}", app.error);
+    assert!(app.category_filter.is_none());
+    assert!(!app.cache.categories.iter().any(|c| c.id == category.id));
+    assert!(!app.cache.items.iter().any(|i| i.category_id == category.id));
+    let stored = app
+        .actor
+        .call(false, move |s| s.resume(&resume_id))
+        .unwrap();
+    assert_eq!(stored.document.sections.last().unwrap().title, "爱好");
+}
+
+#[test]
+fn existing_resume_can_explicitly_adopt_renamed_category_without_changing_history() {
+    let (_temp, mut app) = setup();
+    let r = app
+        .actor
+        .call(true, |s| {
+            let mut draft = empty_item("custom", "自定义");
+            if let ItemContent::Custom { title, .. } = &mut draft.content {
+                *title = "软件资格".into();
+            }
+            let category = s.create_category("自定义", "custom")?;
+            let item = s.save_item_in_category(None, None, &category.id, draft)?;
+            let mut p = Picker::default();
+            p.toggle_item(&item, true);
+            let r = s.create_resume("已有简历", &p.selection, p.style)?;
+            s.create_snapshot(&r.id, r.revision, "改名前", None)?;
+            s.rename_category(&category.id, category.revision, "资格证书")?;
+            Ok(r)
+        })
+        .unwrap();
+    refresh(&mut app);
+    app.open_resume(r.clone());
+    let ctx = egui::Context::default();
+    configure(&ctx, &app.bundle).unwrap();
+    frame(&mut app, &ctx, vec![], [1200., 900.]);
+    let out = frame(&mut app, &ctx, vec![], [1200., 900.]);
+    let rect = texts(&out)
+        .into_iter()
+        .find(|(t, _)| t == "使用资料库名称")
+        .unwrap()
+        .1;
+    frame(
+        &mut app,
+        &ctx,
+        vec![
+            egui::Event::PointerMoved(rect.center()),
+            pointer(rect.center(), true),
+        ],
+        [1200., 900.],
+    );
+    frame(
+        &mut app,
+        &ctx,
+        vec![pointer(rect.center(), false)],
+        [1200., 900.],
+    );
+    assert!(app.dirty());
+    app.save(false);
+    settle(&mut app);
+    let (saved, history) = app
+        .actor
+        .call(false, move |s| Ok((s.resume(&r.id)?, s.snapshots(&r.id)?)))
+        .unwrap();
+    assert_eq!(saved.document.sections[0].title, "资格证书");
+    assert_eq!(history[0].document.sections[0].title, "自定义");
+}
+
 #[test]
 fn save_confirmation_stays_or_returns_and_survives_reopening() {
     let (temp, mut app) = setup();

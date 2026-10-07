@@ -1,6 +1,6 @@
 use crate::{
     Error, Result, Store,
-    catalog::{BUILTINS, valid_kind},
+    catalog::{kind_title, valid_kind},
     error::require,
     files,
     model::*,
@@ -102,7 +102,7 @@ pub fn grouped_copy(source: &ResumeDocument) -> Result<ResumeDocument> {
                     .get(kind)
                     .filter(|s| !s.trim().is_empty())
                     .cloned()
-                    .unwrap_or_else(|| BUILTINS.iter().find(|(k, _)| *k == kind).unwrap().1.into()),
+                    .unwrap_or_else(|| kind_title(kind).into()),
             ),
         };
         if let Some(section) = document

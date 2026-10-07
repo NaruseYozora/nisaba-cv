@@ -57,7 +57,7 @@ pub fn validate(bundle: &Path, d: &ResumeDocument) -> Result<()> {
             } => {
                 text.extend([name.as_str(), role, background]);
                 if let Some(l) = url {
-                    text.push(&l.label);
+                    text.extend([l.label.as_str(), &l.url]);
                 }
             }
             ItemContent::Skill {

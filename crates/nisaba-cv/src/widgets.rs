@@ -241,8 +241,34 @@ pub fn style(ui: &mut Ui, s: &mut Style) {
                 ui.selectable_value(&mut s.font_family, "resume-sans-sc".into(), "黑体风格");
                 ui.selectable_value(&mut s.font_family, "resume-serif-sc".into(), "宋体风格");
             });
-        field(ui, "主题色", &mut s.accent, 85.);
+        ui.label("主题色");
+        accent_picker(ui, &mut s.accent);
     });
+}
+/// Persist the existing hex representation; users select a color graphically.
+pub fn accent_picker(ui: &mut Ui, accent: &mut String) -> egui::Response {
+    let mut rgb = [0x24, 0x57, 0x64];
+    if accent.len() == 7 && accent.starts_with('#') && accent.is_ascii() {
+        for (i, value) in rgb.iter_mut().enumerate() {
+            if let Ok(parsed) = u8::from_str_radix(&accent[1 + i * 2..3 + i * 2], 16) {
+                *value = parsed;
+            }
+        }
+    }
+    let response = ui
+        .color_edit_button_srgb(&mut rgb)
+        .on_hover_text("点击色块，自由选择主题色");
+    if response.changed() {
+        *accent = format!("#{:02x}{:02x}{:02x}", rgb[0], rgb[1], rgb[2]);
+    }
+    response
+}
+fn link_text(link: &Link) -> String {
+    if link.label.trim().is_empty() {
+        link.url.clone()
+    } else {
+        format!("{}：{}", link.label.trim(), link.url)
+    }
 }
 #[derive(Clone)]
 pub struct Drag {
@@ -291,6 +317,10 @@ pub fn state_picker(ui: &mut Ui, state: &mut RecordState) {
     });
 }
 pub fn text_preview(ui: &mut Ui, d: &ResumeDocument) {
+    let grouped = (d.format_version == 1)
+        .then(|| resume_core::grouping::grouped_copy(d).ok())
+        .flatten();
+    let d = grouped.as_ref().unwrap_or(d);
     ui.heading(&d.profile.name);
     ui.label(&d.profile.title);
     ui.label(
@@ -305,7 +335,7 @@ pub fn text_preview(ui: &mut Ui, d: &ResumeDocument) {
         ui.label(format!("{}：{}", f.label, f.value));
     }
     for l in &d.profile.links {
-        ui.hyperlink_to(&l.label, &l.url);
+        ui.hyperlink_to(link_text(l), &l.url);
     }
     if !d.profile.summary.is_empty() {
         ui.label(&d.profile.summary);
@@ -372,7 +402,7 @@ fn block_preview(ui: &mut Ui, b: &ResumeBlock) {
             ui.label(format!("{} · {}", role, date_label(dates)));
             ui.label(background);
             if let Some(l) = url {
-                ui.hyperlink_to(&l.label, &l.url);
+                ui.hyperlink_to(link_text(l), &l.url);
             }
         }
         ItemContent::Skill { description, .. } => {

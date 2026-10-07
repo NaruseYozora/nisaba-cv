@@ -49,7 +49,7 @@
     #if c.kind == "skill" { text(c.description) }
     #if c.kind == "project" {
       if c.background != "" { par(text(c.background)) }
-      if c.url != none { par(link(c.url.url, text(c.url.label))) }
+      if c.url != none { par(link(c.url.url, text(if c.url.label.trim() == "" { c.url.url } else { c.url.label.trim() + "：" + c.url.url }))) }
     }
     #for a in b.achievements { block(above: 0.8mm, below: 0.8mm)[#text("• " + a.text)] }
   ]

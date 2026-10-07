@@ -38,6 +38,7 @@ fn base(store: &mut Store) -> R<Resume> {
         name: "软件工程师简历".into(),
         ..Default::default()
     };
+    let certificate = store.create_category("资格证书", "custom")?;
     for (kind, title) in [
         ("skill", "Rust"),
         ("education", "示例大学"),
@@ -115,7 +116,12 @@ fn base(store: &mut Store) -> R<Resume> {
             });
         }
         d.notes = "PRIVATE_NOTE_MUST_NOT_EXPORT".into();
-        let item = store.save_item_in_category(None, None, &format!("builtin:{kind}"), d)?;
+        let category = if kind == "custom" {
+            certificate.id.clone()
+        } else {
+            format!("builtin:{kind}")
+        };
+        let item = store.save_item_in_category(None, None, &category, d)?;
         picker.toggle_item(&item, true);
     }
     picker.selection.custom_field_ids = store

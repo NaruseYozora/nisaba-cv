@@ -4,19 +4,19 @@ Unicode true
  !define BUNDLE_DIR "..\dist\Nisaba CV"
 !endif
 !ifndef OUTPUT_FILE
- !define OUTPUT_FILE "..\dist\Nisaba-CV-v1.0-windows-x64.exe"
+ !define OUTPUT_FILE "..\dist\Nisaba-CV-v1.1-windows-x64.exe"
 !endif
-Name "Nisaba CV 1.0"
+Name "Nisaba CV 1.1"
 OutFile "${OUTPUT_FILE}"
 RequestExecutionLevel user
 SetCompressor /SOLID lzma
 SetCompressorDictSize 128
 InstallDir "$EXEDIR\Nisaba CV"
 LoadLanguageFile "${NSISDIR}\Contrib\Language files\SimpChinese.nlf"
-VIProductVersion "1.0.0.0"
+VIProductVersion "1.1.0.0"
 VIAddVersionKey /LANG=2052 "ProductName" "Nisaba CV"
-VIAddVersionKey /LANG=2052 "ProductVersion" "1.0"
-VIAddVersionKey /LANG=2052 "FileVersion" "1.0"
+VIAddVersionKey /LANG=2052 "ProductVersion" "1.1"
+VIAddVersionKey /LANG=2052 "FileVersion" "1.1"
 VIAddVersionKey /LANG=2052 "FileDescription" "Nisaba CV 便携自解压包"
 VIAddVersionKey /LANG=2052 "LegalCopyright" "Copyright 2026 Nisaba CV contributors"
 DirText "选择新的目录或已有空文件夹，例如 D:\Nisaba CV。此包只解压程序；包含文件的目录受到保护。"

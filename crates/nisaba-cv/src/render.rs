@@ -79,11 +79,14 @@ fn plain_directory(meta: &fs::Metadata) -> bool {
 }
 
 pub fn render(s: &Store, bundle: &Path, root: &Path, frozen: &Resume) -> Result<Rendered> {
-    frozen.document.validate()?;
+    // Export old resumes through the same frozen-content grouping used by the editor.
+    // The database and original history PDF remain untouched.
+    let mut frozen = frozen.clone();
+    frozen.document = resume_core::grouping::grouped_copy(&frozen.document)?;
     crate::font_check::validate(bundle, &frozen.document)?;
     let mut rendered = Rendered::new(root, frozen.id.clone(), frozen.revision)?;
     let directory = &rendered.directory;
-    let mut json = serde_json::to_value(frozen)?;
+    let mut json = serde_json::to_value(&frozen)?;
     if let Some(id) = &frozen.document.profile.photo_asset_id {
         let (mime, bytes) = s.photo_asset(id)?;
         let name = if mime == "image/png" {

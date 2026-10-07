@@ -95,7 +95,6 @@ pub struct App {
     pub category_filter: Option<String>,
     pub state_filter: RecordState,
     pub category_name: String,
-    pub category_kind: String,
     pub renaming: Option<(String, i64, String)>,
     pub confirm: Option<Confirmation>,
     pub history_id: Option<String>,
@@ -142,7 +141,6 @@ impl App {
             category_filter: None,
             state_filter: RecordState::Active,
             category_name: String::new(),
-            category_kind: "custom".into(),
             renaming: None,
             confirm: None,
             history_id: None,
@@ -321,6 +319,18 @@ impl App {
                             Editor::Resume(_) => Page::Resume,
                         };
                         self.set_editor(editor, page)
+                    }
+                    if e.notice == "类别已创建" {
+                        self.category_name.clear();
+                        self.category_filter = None;
+                        self.query.clear();
+                        self.state_filter = RecordState::Active;
+                    } else if self
+                        .category_filter
+                        .as_ref()
+                        .is_some_and(|id| !self.cache.categories.iter().any(|c| &c.id == id))
+                    {
+                        self.category_filter = None;
                     }
                     self.toast = Some((e.notice, Instant::now()));
                 }

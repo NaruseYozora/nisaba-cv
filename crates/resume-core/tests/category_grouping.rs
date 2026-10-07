@@ -141,7 +141,8 @@ fn native_profile_retains_legacy_summary_and_selects_custom_fields_by_stable_id(
 fn categories_have_stable_ids_cas_names_and_safe_deletion() {
     let t = temp();
     let mut s = Store::open(t.path()).unwrap();
-    assert_eq!(s.categories().unwrap().len(), 5);
+    assert_eq!(s.categories().unwrap().len(), 4);
+    assert!(!s.categories().unwrap().iter().any(|c| c.name == "自定义"));
     let c = s.create_category("  证书  ", "custom").unwrap();
     assert_eq!(c.name, "证书");
     assert!(s.create_category("证书", "custom").is_err());
@@ -155,18 +156,21 @@ fn categories_have_stable_ids_cas_names_and_safe_deletion() {
         s.rename_category(&c.id, c.revision, "过期修改"),
         Err(Error::Conflict)
     ));
-    assert!(s.delete_category(&c.id, renamed.revision).is_err());
+    assert!(matches!(
+        s.delete_category(&c.id, c.revision),
+        Err(Error::Conflict)
+    ));
     let item = s
         .set_item_state(&item.id, item.revision, RecordState::Trashed)
         .unwrap();
-    assert!(s.delete_category(&c.id, renamed.revision).is_err());
     let token = s.change_token().unwrap();
     assert!(
         s.move_item_category(&item.id, item.revision, "builtin:skill")
             .is_err()
     );
     assert_eq!(s.change_token().unwrap(), token);
-    s.move_item_category(&item.id, item.revision, "builtin:custom")
+    let target = s.create_category("其他证书", "custom").unwrap();
+    s.move_item_category(&item.id, item.revision, &target.id)
         .unwrap();
     s.delete_category(&c.id, renamed.revision).unwrap();
     assert!(s.delete_category("builtin:skill", 1).is_err());
@@ -177,6 +181,50 @@ fn categories_have_stable_ids_cas_names_and_safe_deletion() {
         .unwrap();
     let copied = s.copy_item(&a.id, a.revision).unwrap();
     assert_eq!(copied.category_id, c.id);
+}
+#[test]
+fn deleting_named_category_removes_all_library_materials_but_keeps_resume_copies() {
+    let t = temp();
+    let mut s = Store::open(t.path()).unwrap();
+    let c = s.create_category("爱好", "custom").unwrap();
+    let a = s
+        .save_item_in_category(None, None, &c.id, custom("阅读", "爱好"))
+        .unwrap();
+    let b = s
+        .save_item_in_category(None, None, &c.id, custom("摄影", "爱好"))
+        .unwrap();
+    let b = s
+        .set_item_state(&b.id, b.revision, RecordState::Archived)
+        .unwrap();
+    let d = s
+        .save_item_in_category(None, None, &c.id, custom("跑步", "爱好"))
+        .unwrap();
+    let d = s
+        .set_item_state(&d.id, d.revision, RecordState::Trashed)
+        .unwrap();
+    let r = s
+        .create_resume("爱好测试", &selection(&[&a]), Style::default())
+        .unwrap();
+    let snapshot = s
+        .create_snapshot(&r.id, r.revision, "类别删除前", None)
+        .unwrap();
+    let renamed = s.rename_category(&c.id, c.revision, "个人爱好").unwrap();
+    assert!(matches!(
+        s.delete_category(&c.id, c.revision),
+        Err(Error::Conflict)
+    ));
+    assert!(s.item(&a.id).is_ok());
+    s.delete_category(&c.id, renamed.revision).unwrap();
+    for id in [&a.id, &b.id, &d.id] {
+        assert!(s.item(id).is_err());
+    }
+    assert!(s.category(&c.id).is_err());
+    assert_eq!(s.resume(&r.id).unwrap(), r);
+    assert_eq!(s.snapshot(&snapshot.id).unwrap(), snapshot);
+    drop(s);
+    let s = Store::open(t.path()).unwrap();
+    assert_eq!(s.categories().unwrap().len(), 4);
+    assert_eq!(s.resume(&r.id).unwrap().document.sections[0].title, "爱好");
 }
 #[test]
 fn category_order_conflicts_and_invalid_item_writes_roll_back_every_change() {
@@ -262,6 +310,38 @@ fn grouped_selection_orders_categories_and_items_without_leaking_notes() {
     let mut mixed = selection(&[&a]);
     mixed.items.push(pick(&b));
     assert!(mixed.validate().is_err());
+}
+#[test]
+fn named_custom_categories_override_generic_layout_titles_and_keep_saved_headings() {
+    let t = temp();
+    let mut s = Store::open(t.path()).unwrap();
+    let c = s.create_category("证书", "custom").unwrap();
+    let c = s.rename_category(&c.id, c.revision, "资格证书").unwrap();
+    let other = s.create_category("科研训练", "custom").unwrap();
+    let a = s
+        .save_item_in_category(None, None, &c.id, custom("证书甲", "旧文本"))
+        .unwrap();
+    let b = s
+        .save_item_in_category(None, None, &other.id, custom("课题乙", "旧文本"))
+        .unwrap();
+    let mut style = Style::default();
+    style.module_titles.insert("custom".into(), "自定义".into());
+    let r = s
+        .create_resume("命名类别", &selection(&[&a, &b]), style)
+        .unwrap();
+    assert_eq!(
+        r.document
+            .sections
+            .iter()
+            .map(|s| s.title.as_str())
+            .collect::<Vec<_>>(),
+        ["资格证书", "科研训练"]
+    );
+    s.rename_category(&c.id, c.revision, "职业资格").unwrap();
+    assert_eq!(
+        s.resume(&r.id).unwrap().document.sections[0].title,
+        "资格证书"
+    );
 }
 #[test]
 fn category_and_custom_field_changes_are_reported_by_saved_presets() {
@@ -524,7 +604,7 @@ fn schema5_migration_preserves_all_original_json_pdf_and_revisions() {
     let t = temp();
     let (json, profile) = v5(t.path());
     let s = Store::open(t.path()).unwrap();
-    assert_eq!(s.overview().unwrap().schema_version, 6);
+    assert_eq!(s.overview().unwrap().schema_version, migrations::SCHEMA);
     assert_eq!(
         s.item("i0").unwrap().category_id,
         s.item("i2").unwrap().category_id
@@ -671,7 +751,7 @@ fn old_backup_and_new_backup_restore_categories_fields_grouping_and_pdf() {
     s.save_profile(content, profile.revision).unwrap();
     let backup = target.path().join("new.rslbackup");
     let manifest = s.backup(&backup).unwrap();
-    assert_eq!(manifest.schema_version, 6);
+    assert_eq!(manifest.schema_version, migrations::SCHEMA);
     assert_eq!(manifest.backup_format, 1);
     let other = temp();
     let mut restored = Store::open(other.path()).unwrap();

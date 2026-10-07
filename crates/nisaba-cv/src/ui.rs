@@ -194,32 +194,32 @@ impl App {
         });
         state_picker(ui, &mut self.state_filter);
         ui.add_space(8.);
+        ui.horizontal_wrapped(|ui| {
+            ui.label("新建自定义类别");
+            ui.add(
+                egui::TextEdit::singleline(&mut self.category_name)
+                    .desired_width(160.)
+                    .hint_text("类别名称，如：爱好"),
+            );
+            if ui
+                .add_enabled(
+                    !self.category_name.trim().is_empty(),
+                    egui::Button::new("创建类别"),
+                )
+                .clicked()
+            {
+                let name = self.category_name.clone();
+                self.submit(true, move |s| {
+                    s.create_category(&name, "custom")?;
+                    Ok((None, None, "类别已创建".into()))
+                });
+            }
+        });
+        ui.small("自定义类别与教育、项目、技能并列，类别名称直接用作简历大标题。");
         egui::CollapsingHeader::new("管理类别")
             .id_salt("category-manager")
             .show(ui, |ui| {
-                ui.horizontal_wrapped(|ui| {
-                    field(ui, "名称", &mut self.category_name, 160.);
-                    egui::ComboBox::from_id_salt("category-kind")
-                        .selected_text(kind_name(&self.category_kind))
-                        .show_ui(ui, |ui| {
-                            for kind in ["custom", "education", "work", "project", "skill"] {
-                                ui.selectable_value(
-                                    &mut self.category_kind,
-                                    kind.into(),
-                                    kind_name(kind),
-                                );
-                            }
-                        });
-                    if ui.button("创建类别").clicked() {
-                        let name = self.category_name.clone();
-                        let kind = self.category_kind.clone();
-                        self.submit(true, move |s| {
-                            s.create_category(&name, &kind)?;
-                            Ok((None, None, "类别已创建".into()))
-                        });
-                    }
-                });
-                ui.small("类别决定素材的填写字段；创建后可改名、排序，同类型素材可移动。");
+                ui.small("可改名、排序；在类别旁添加素材或删除自建类别。");
                 let categories = self.cache.categories.clone();
                 let mut movement = None;
                 for (index, c) in categories.iter().enumerate() {
@@ -230,13 +230,8 @@ impl App {
                             movement = Some(m)
                         }
                         ui.label(&c.name);
-                        ui.weak(kind_name(&c.kind));
                         if ui.small_button("改名").clicked() {
                             self.renaming = Some((c.id.clone(), c.revision, c.name.clone()))
-                        }
-                        if !c.builtin && ui.small_button("删除类别").clicked() {
-                            self.confirm =
-                                Some(Confirmation::DeleteCategory(c.id.clone(), c.revision))
                         }
                     });
                     if let Some(m) = row_drop(&row.response, "library-categories", index) {
@@ -297,7 +292,7 @@ impl App {
                 .cloned()
                 .collect();
             ui.add_space(12.);
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 ui.strong(&c.name);
                 ui.weak(format!("{} 项", items.len()));
                 if self.state_filter == RecordState::Active && ui.button("添加素材").clicked() {
@@ -309,6 +304,9 @@ impl App {
                         )),
                         Page::Item,
                     )
+                }
+                if !c.builtin && ui.small_button("删除类别").clicked() {
+                    self.confirm = Some(Confirmation::DeleteCategory(c.id.clone(), c.revision));
                 }
             });
             if items.is_empty() {
@@ -728,6 +726,19 @@ impl App {
                     &mut e.draft.document.sections[index].title,
                     220.,
                 );
+                if let Some(category) = self
+                    .cache
+                    .categories
+                    .iter()
+                    .find(|c| c.id == section.category_id)
+                    && category.name != e.draft.document.sections[index].title
+                    && ui
+                        .small_button("使用资料库名称")
+                        .on_hover_text("将本组标题更新为资料库中的类别名；保存后生效")
+                        .clicked()
+                {
+                    e.draft.document.sections[index].title = category.name.clone();
+                }
                 if ui.button("添加临时素材").clicked() {
                     let id = resume_core::store::id();
                     let mut content = empty_item(&section.kind, &section.title).content;
@@ -997,15 +1008,6 @@ fn safe_filename(s: &str) -> String {
         })
         .take(120)
         .collect()
-}
-fn kind_name(kind: &str) -> &str {
-    match kind {
-        "education" => "教育经历",
-        "work" => "工作经历",
-        "project" => "项目经历",
-        "skill" => "技能",
-        _ => "自定义",
-    }
 }
 fn search_item(i: &LibraryItem, q: &str) -> bool {
     format!(
